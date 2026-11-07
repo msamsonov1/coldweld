@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ColdWeld: Robotic Gripper Vacuum Cold-Welding Preventer</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- MathJax Configuration and Script -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #03050a;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .formula-box {
+      background-color: #020617;
+      border: 1px solid #1e293b;
+      box-shadow: inset 0 0 15px rgba(6, 182, 212, 0.05);
+    }
+    /* Glow accents */
+    .glow-cyan {
+      box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.35);
+    }
+    .glow-rose {
+      box-shadow: 0 0 20px -3px rgba(244, 63, 94, 0.45);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.35);
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #03050a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#03050a] text-slate-200">
+
+  <!-- TOP APPLICATION NAVBAR -->
+  <header class="border-b border-slate-800/80 bg-[#060a14]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Logo & Title -->
+      <div class="flex items-center space-x-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 via-indigo-600 to-rose-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="shield-alert" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+              ColdWeld <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono-code font-normal">SBIR-ISAM-26.1</span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400">Robotic Gripper Vacuum Solid-State Adhesion & Cold-Welding Preventer</p>
+        </div>
+      </div>
+
+      <!-- Live Mission Status Badge -->
+      <div class="flex items-center space-x-3 text-xs font-mono-code">
+        <div class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center space-x-2">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span class="text-slate-400">VACUUM:</span>
+          <span class="text-cyan-400 font-semibold">1.2 × 10⁻⁸ Torr</span>
+        </div>
+        <div id="systemStateBadge" class="px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-700 text-emerald-300 font-semibold flex items-center gap-1.5">
+          <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+          <span>NOMINAL ELASTIC CONTACT</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center p-1 bg-slate-950/90 rounded-xl border border-slate-800/80">
+        <button id="tabBtnSim" onclick="switchTab('sim')" class="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-white bg-slate-800 shadow">
+          <span class="flex items-center gap-1.5"><i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-400"></i> Simulation HUD</span>
+        </button>
+        <button id="tabBtnPhysics" onclick="switchTab('physics')" class="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          <span class="flex items-center gap-1.5"><i data-lucide="atom" class="w-3.5 h-3.5 text-indigo-400"></i> Physics & Inversion</span>
+        </button>
+        <button id="tabBtnProposal" onclick="switchTab('proposal')" class="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          <span class="flex items-center gap-1.5"><i data-lucide="rocket" class="w-3.5 h-3.5 text-amber-400"></i> NASA SBIR ($225k)</span>
+        </button>
+        <button id="tabBtnARR" onclick="switchTab('arr')" class="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          <span class="flex items-center gap-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-400"></i> Commercial ARR ($218M)</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- ==================================================================== -->
+    <!-- TAB 1: LIVE SIMULATION & TELEMETRY HUD                               -->
+    <!-- ==================================================================== -->
+    <div id="viewSim" class="space-y-6">
+      
+      <!-- Top Overview Alert banner -->
+      <div class="p-3.5 bg-gradient-to-r from-slate-900/90 via-cyan-950/30 to-slate-900/90 border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <i data-lucide="satellite" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <span class="font-semibold text-slate-200">ISAM Operational Mission:</span>
+            <span class="text-slate-400 ml-1">Robotic servicing arm grapple interface at GEO. Bare Ti-6Al-4V fixture clamped against BeCu gripper tip.</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 text-slate-400 font-mono-code">
+          <span>SAMPLING: <strong class="text-cyan-400">1,000 Hz (1 ms)</strong></span>
+          <span>PIEZO STACK: <strong id="piezoStatusText" class="text-slate-400">STANDBY (0 kHz)</strong></span>
+        </div>
+      </div>
+
+      <!-- Main Interactive Row: Canvas & Phase Space -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Physical Simulation Canvas (7 cols) -->
+        <div class="lg:col-span-7 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+              <h2 class="text-sm font-semibold text-white tracking-wide uppercase">High-Vacuum Contact Asperity Micro-Junction Canvas</h2>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-mono-code">
+              <span class="text-slate-400">Scale:</span>
+              <span class="text-cyan-300">50 nm Grid</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Canvas -->
+          <div class="relative w-full h-72 sm:h-80 bg-[#02050c] rounded-xl overflow-hidden border border-slate-800/90">
+            <canvas id="nanoCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Canvas Overlay Telemetry HUD -->
+            <div class="absolute top-3 left-3 bg-black/70 backdrop-blur border border-slate-800 rounded-lg p-2.5 text-[11px] font-mono-code space-y-1">
+              <div class="flex justify-between gap-4 text-slate-400">
+                <span>Clamp Force ($F$):</span>
+                <span id="canvasForceVal" class="text-amber-400 font-bold">120.0 N</span>
+              </div>
+              <div class="flex justify-between gap-4 text-slate-400">
+                <span>Conductance ($G$):</span>
+                <span id="canvasConductanceVal" class="text-cyan-400 font-bold">38.4 mS</span>
+              </div>
+              <div class="flex justify-between gap-4 text-slate-400">
+                <span>Real Contact Area ($A_r$):</span>
+                <span id="canvasAreaVal" class="text-emerald-400 font-bold">0.42 μm²</span>
+              </div>
+              <div class="flex justify-between gap-4 text-slate-400">
+                <span>Metallic Bonding Fraction:</span>
+                <span id="canvasWeldPct" class="text-slate-200 font-bold">3.2 %</span>
+              </div>
+            </div>
+
+            <!-- Warning Watermark if Spiking -->
+            <div id="weldWarningOverlay" class="hidden absolute inset-0 bg-rose-950/20 border-2 border-rose-500/50 rounded-xl pointer-events-none flex items-center justify-center">
+              <div class="bg-rose-900/90 text-rose-100 font-bold px-4 py-2 rounded-lg text-xs tracking-wider uppercase flex items-center gap-2 border border-rose-400 animate-pulse glow-rose">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
+                Critical Quantum Conductance Surge Detected — Micro-Bonding Imminent
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span> Upper: Robotic BeCu Gripper Finger</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Lower: Satellite Ti-6Al-4V Grapple Fixture</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Red: Cold-Welded Atomic Bridges</span>
+          </div>
+        </div>
+
+        <!-- Diagnostic Phase Space Plot: Force vs Conductance (5 cols) -->
+        <div class="lg:col-span-5 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h2 class="text-sm font-semibold text-white tracking-wide uppercase">Diagnostic Phase-Space: $F$ vs. $G$</h2>
+              <p class="text-xs text-slate-400">Pre-adhesion detection via Sharvin-Holm conductance curvature</p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono-code border border-slate-700">Real-Time Trajectory</span>
+          </div>
+
+          <div class="relative w-full h-72 sm:h-80 bg-[#02050c] rounded-xl p-2 border border-slate-800/90">
+            <canvas id="phaseSpaceChart"></canvas>
+          </div>
+
+          <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+            <span class="text-emerald-400 flex items-center gap-1">● Holm Elastic Law: $G \propto F^{1/3}$</span>
+            <span class="text-rose-400 flex items-center gap-1">▲ Critical Adhesion Zone ($\partial G/\partial F \gg 1$)</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Control Deck & Dynamic Telemetry Strips -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Closed Loop Control Deck (4 cols) -->
+        <div class="lg:col-span-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+              <h3 class="text-sm font-semibold text-white uppercase tracking-wider">Actuator & Vacuum Control</h3>
+            </div>
+            <button onclick="resetSimulation()" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset
+            </button>
+          </div>
+
+          <!-- Slider 1: Mechanical Clamping Force -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono-code">
+              <span class="text-slate-300">Gripper Clamping Force ($F$)</span>
+              <span id="sliderForceVal" class="text-amber-400 font-bold">120 N</span>
+            </div>
+            <input id="inputForce" type="range" min="10" max="600" value="120" step="5" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>10 N (Grapple touch)</span>
+              <span>600 N (Crush threshold)</span>
+            </div>
+          </div>
+
+          <!-- Slider 2: Vacuum Surface De-Oxidation Index -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono-code">
+              <span class="text-slate-300">Ultra-High Vacuum Exposure</span>
+              <span id="sliderVacuumVal" class="text-cyan-400 font-bold">94 % (Pristine Ti)</span>
+            </div>
+            <input id="inputVacuum" type="range" min="10" max="100" value="94" step="1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>Passivated (Oxide intact)</span>
+              <span>10⁻¹⁰ Torr (Atomically Bare)</span>
+            </div>
+          </div>
+
+          <!-- Slider 3: Asperity Roughness Rq -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono-code">
+              <span class="text-slate-300">Surface Roughness ($R_q$)</span>
+              <span id="sliderRoughnessVal" class="text-indigo-400 font-bold">0.45 μm</span>
+            </div>
+            <input id="inputRoughness" type="range" min="0.1" max="1.5" value="0.45" step="0.05" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>0.1 μm (Super-polished)</span>
+              <span>1.5 μm (EDM Machined)</span>
+            </div>
+          </div>
+
+          <!-- Fault Injection & Closed Loop Switches -->
+          <div class="pt-2 border-t border-slate-800/80 space-y-3">
+            <div class="flex items-center justify-between bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+              <div class="text-xs">
+                <div class="text-slate-200 font-medium">Autonomous Micro-Vibration</div>
+                <div class="text-[10px] text-slate-400">Piezo Stack 28 kHz Ultrasonic Shear</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input id="toggleAutoIntervention" type="checkbox" checked class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+              </label>
+            </div>
+
+            <!-- Manual Trigger Buttons -->
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="injectSeizureSurge()" class="px-3 py-2 bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all">
+                <i data-lucide="flame" class="w-3.5 h-3.5"></i> Spike Cold-Weld
+              </button>
+              <button onclick="manualPiezoPulse()" class="px-3 py-2 bg-cyan-950/50 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all">
+                <i data-lucide="activity" class="w-3.5 h-3.5"></i> Manual 28kHz Pulse
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Time Series 1: Conductance & Differential Slope (4 cols) -->
+        <div class="lg:col-span-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h3 class="text-sm font-semibold text-white tracking-wide uppercase">1 kHz Interface Conductance ($G(t)$)</h3>
+              <p class="text-[11px] text-slate-400">Holm Constriction vs. Quantum Point-Contact</p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 font-mono-code border border-cyan-800">mS Telemetry</span>
+          </div>
+          <div class="relative w-full h-56 bg-[#02050c] rounded-xl p-2 border border-slate-800/90">
+            <canvas id="conductanceTimeChart"></canvas>
+          </div>
+          <div class="mt-2 text-[11px] font-mono-code text-slate-400 flex justify-between">
+            <span>Nominal Elastic: &lt; 85 mS</span>
+            <span class="text-rose-400 font-semibold">Critical Tripwire: ≥ 160 mS</span>
+          </div>
+        </div>
+
+        <!-- Telemetry Time Series 2: Piezo Vibration Shear Amplitude (4 cols) -->
+        <div class="lg:col-span-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h3 class="text-sm font-semibold text-white tracking-wide uppercase">Piezo Sonotrode Shear Wave ($A_{\mu}$)</h3>
+              <p class="text-[11px] text-slate-400">Tangential Asperity Nano-Oscillation</p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 font-mono-code border border-indigo-800">28 kHz Carrier</span>
+          </div>
+          <div class="relative w-full h-56 bg-[#02050c] rounded-xl p-2 border border-slate-800/90">
+            <canvas id="vibrationTimeChart"></canvas>
+          </div>
+          <div class="mt-2 text-[11px] font-mono-code text-slate-400 flex justify-between">
+            <span>Active Bond Fracture: &gt; 1.2 μm</span>
+            <span id="bondStatusFoot" class="text-emerald-400 font-semibold">Bonds Dissipated</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- TAB 2: CORE PHYSICS & MATHEMATICAL MODEL                             -->
+    <!-- ==================================================================== -->
+    <div id="viewPhysics" class="hidden space-y-6">
+      
+      <!-- Section Header -->
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+            <i data-lucide="atom" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight">Microscopic Tribo-Physics of Ultra-High Vacuum Cold-Welding</h2>
+            <p class="text-xs text-slate-400">Holm electrical constriction, Greenwood-Williamson contact mechanics, and non-destructive ultrasonic shear debonding</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Rigorous Physics Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Card 1: Greenwood-Williamson & Holm Contact Conductance -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+              <span class="text-cyan-400 font-mono-code">01.</span> Contact Mechanics & Constriction Conductance
+            </h3>
+            <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-mono-code border border-cyan-800">Holm-Sharvin</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            In terrestrial air, native oxide passivation layers ($\text{TiO}_2$, $\text{Al}_2\text{O}_3$, $t \approx 2\text{--}5\text{ nm}$) prevent direct metal-to-metal orbital overlap. In hard space vacuum ($P < 10^{-7}\text{ Torr}$), mechanical contact destroys these embrittled films without atmospheric re-oxidation. Under clamping force $F$, actual contact occurs only at microscopic surface asperities with real area $A_r \ll A_{\text{nominal}}$.
+          </p>
+          
+          <div class="formula-box p-3 rounded-xl text-center text-cyan-300 text-sm overflow-x-auto my-2">
+            $$A_r = \sum_{i=1}^{N} \pi r_i^2 = \frac{F}{H_{\text{Meyer}}}, \qquad G_c = \frac{1}{R_c} = \frac{2 a}{\rho} + \frac{4 e^2}{h}\left(\frac{k_F a}{2}\right)^2 \mathcal{T}$$
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Where $H_{\text{Meyer}}$ is the softer metal indentation hardness, $a$ is the effective micro-contact radius, $\rho$ is bulk electrical resistivity, and $\mathcal{T}$ represents electron transmission probability across clean metallic interfaces. As clamping force increases beyond the elastic limit, plastic deformation crushes asperity peaks, causing $A_r$ and electrical conductance $G$ to jump by orders of magnitude.
+          </p>
+        </div>
+
+        <!-- Card 2: Quantum Point Contact & Cohesive Adhesion Inversion -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+              <span class="text-indigo-400 font-mono-code">02.</span> Solid-State Cohesion & Work of Adhesion
+            </h3>
+            <span class="text-xs px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 font-mono-code border border-indigo-800">Dupré-Maugis</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            When two atomically pristine metallic surfaces are brought within atomic spacing ($d < 0.4\text{ nm}$), metallic bonding electrons delocalize across the boundary. The thermodynamic thermodynamic driving force is dictated by the Dupré work of adhesion:
+          </p>
+
+          <div class="formula-box p-3 rounded-xl text-center text-indigo-300 text-sm overflow-x-auto my-2">
+            $$W_{\text{ad}} = \gamma_1 + \gamma_2 - \gamma_{12} \approx 2 \sqrt{\gamma_1 \gamma_2}, \qquad F_{\text{pull-off}} = \frac{3}{2}\pi R\, W_{\text{ad}}$$
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            For titanium against beryllium copper in ultra-high vacuum, surface energies $\gamma_1, \gamma_2 \approx 1.8\text{--}2.1\text{ J/m}^2$, yielding colossal pull-off forces exceeding the maximum actuator rating of the servicing robot arm ($F_{\text{pull-off}} > 800\text{ N}$), resulting in permanent robotic arm seizure.
+          </p>
+        </div>
+
+        <!-- Card 3: Real-Time Diagnostic State Observer & Non-Linear Inversion -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+              <span class="text-amber-400 font-mono-code">03.</span> State Observer & Pre-Weld Curvature Metric
+            </h3>
+            <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-mono-code border border-amber-800">Kalman Inversion</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Standard robotic load cells only track total normal force $F$, which remains constant during steady clamping. ColdWeld injects a high-frequency low-amplitude AC interrogation signal ($100\text{ kHz}, 50\text{ mV}$) through the contact to track real-time interface conductance $G(t)$.
+          </p>
+
+          <div class="formula-box p-3 rounded-xl text-center text-amber-300 text-sm overflow-x-auto my-2">
+            $$\Psi_{\text{weld}} = \left.\frac{\partial G}{\partial t}\right|_{F = \text{const}} + \beta \left( \frac{\partial G}{\partial F} - \frac{1}{3}\frac{G}{F} \right) > \Psi_{\text{threshold}}$$
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Under purely elastic Hertzian contact, $G \propto F^{1/3}$ so $\frac{\partial G}{\partial F} - \frac{1}{3}\frac{G}{F} = 0$. The moment plastic creep or atomic cohesion initiates, conductance surges exponentially without an increase in force ($\Psi_{\text{weld}} \gg 0$). This provides a 25 to 120 ms advance warning window before macro-scale fusion occurs.
+          </p>
+        </div>
+
+        <!-- Card 4: Ultrasonic Piezo Shear Wave Debonding Mechanism -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+              <span class="text-emerald-400 font-mono-code">04.</span> Piezo Micro-Vibration Bond Fracture
+            </h3>
+            <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono-code border border-emerald-800">Acoustic Shear</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Upon detection of the $\Psi_{\text{weld}}$ tripwire, the ColdWeld control loop activates multi-axis PZT piezo actuators embedded directly behind the beryllium-copper gripper contact pads, generating tangential shear displacements at $f = 28\text{ kHz}$.
+          </p>
+
+          <div class="formula-box p-3 rounded-xl text-center text-emerald-300 text-sm overflow-x-auto my-2">
+            $$\tau_{\text{shear}} = G_{\text{mat}} \frac{\partial u_x}{\partial z} \ge \tau_{\text{theoretical}} \approx \frac{G_{\text{mat}}}{30}, \qquad u_x(t) = A_0 \sin(2\pi f_{\text{piezo}} t)$$
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            The sub-micron shear motion creates local mode-II stress concentrations at the embryonic atomic junctions. Because metallic cold-welded junctions in their first milliseconds have not undergone grain growth or recrystallization, their shear strength is easily overcome by cyclic acoustic shear, cleaving metallic bonds before diffusion bonding locks the interface.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Hardware Architecture Schematic Callout -->
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-1">
+          <div class="text-sm font-bold text-white uppercase tracking-wider">Substrate & Sensor Hardware Specifications</div>
+          <p class="text-xs text-slate-400">Integrated end-effector instrumentation for Canadarm3, FREND, and commercial ISAM servicing arms.</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono-code text-center w-full md:w-auto">
+          <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+            <span class="text-slate-400 block text-[10px]">PZT ACTUATION</span>
+            <span class="text-cyan-400 font-bold">28.4 kHz / 3.5 μm</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+            <span class="text-slate-400 block text-[10px]">IMPEDANCE SENSING</span>
+            <span class="text-indigo-400 font-bold">12-bit / 100 kHz</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+            <span class="text-slate-400 block text-[10px]">LOOP LATENCY</span>
+            <span class="text-emerald-400 font-bold">&lt; 1.0 ms RTOS</span>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+            <span class="text-slate-400 block text-[10px]">TEMP RANGE</span>
+            <span class="text-amber-400 font-bold">-150°C to +130°C</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- TAB 3: NASA SBIR/STTR PROPOSAL & HARDWARE TRANSITION                 -->
+    <!-- ==================================================================== -->
+    <div id="viewProposal" class="hidden space-y-6">
+
+      <!-- Header Card -->
+      <div class="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <span class="px-2.5 py-1 rounded bg-amber-950 text-amber-400 border border-amber-800 text-xs font-mono-code font-bold uppercase">NASA SBIR 2026 Phase I Solicitation</span>
+          <h2 class="text-xl font-bold text-white tracking-tight mt-2">Topic S12.04: In-Space Servicing, Satellite Refueling, and Orbital Assembly (ISAM)</h2>
+          <p class="text-xs text-slate-400 mt-1">Autonomous Cold-Welding Prevention Firmware and Piezo-Active End-Effector Grippers for Long-Duration GEO/LEO Operations</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-950/90 border border-slate-800 text-right min-w-[200px]">
+          <div class="text-[10px] text-slate-400 uppercase font-mono-code">Phase I Total Budget</div>
+          <div class="text-2xl font-bold text-amber-400 font-mono-code">$225,000</div>
+          <div class="text-[11px] text-slate-400">Duration: 6 Months (TRL 3 → 5)</div>
+        </div>
+      </div>
+
+      <!-- Budget & University Partner Allocation -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- Prime Allocation (70%) -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold uppercase text-slate-300">Prime Small Business (70.0%)</span>
+            <span class="text-cyan-400 font-mono-code font-bold">$157,500</span>
+          </div>
+          <h4 class="text-sm font-semibold text-white">ColdWeld Technologies Inc.</h4>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            Direct real-time firmware engineering, RTOS FPGA-based 1 kHz state observer inversion synthesis, high-frequency digital impedance bridge integration, and flight qualification architecture.
+          </p>
+        </div>
+
+        <!-- STTR Partner (30%) -->
+        <div class="bg-slate-900/40 border border-amber-800/60 rounded-2xl p-5 backdrop-blur bg-gradient-to-br from-amber-950/20 to-slate-900/40">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold uppercase text-amber-300">University Research Partner (30.0%)</span>
+            <span class="text-amber-400 font-mono-code font-bold">$67,500</span>
+          </div>
+          <h4 class="text-sm font-semibold text-white">University of Central Florida (UCF)</h4>
+          <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+            <strong>CATER Facility & High-Vacuum Chambers:</strong> Experimental validation in $10^{-9}\text{ Torr}$ cryo-shrouded vacuum chamber with in-situ atomic force profilometry and ultrasonic shear piezo calibration.
+          </p>
+        </div>
+
+        <!-- Phase II Target -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold uppercase text-slate-300">Phase II Transition Plan</span>
+            <span class="text-emerald-400 font-mono-code font-bold">$850,000</span>
+          </div>
+          <h4 class="text-sm font-semibold text-white">Full Flight Qualification</h4>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            Integration into flight-ready grapple fixtures for NASA OSAM-1 heritage buses, Northrop Grumman MEV (Mission Extension Vehicles), and Astroscale commercial debris capture arms.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- 6-Month Work Breakdown Milestones -->
+      <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur space-y-4">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4 text-cyan-400"></i> Phase I Work Breakdown Structure & Milestones (Months 1–6)
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          
+          <!-- Month 1-2 -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-cyan-400 font-mono-code">M1 – M2</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono-code">TRL 3</span>
+            </div>
+            <h5 class="text-xs font-bold text-white">Vacuum Tribology & Asperity Micro-Model</h5>
+            <p class="text-[11px] text-slate-400">
+              Derivation of Holm-Sharvin conductance transitions for Ti-6Al-4V, BeCu, and 6061-T6 under $10^{-8}\text{ Torr}$ conditions with native oxide spallation.
+            </p>
+          </div>
+
+          <!-- Month 3 -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-400 font-mono-code">M3</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono-code">TRL 3+</span>
+            </div>
+            <h5 class="text-xs font-bold text-white">State Observer Inversion Algorithm</h5>
+            <p class="text-[11px] text-slate-400">
+              Formulation of non-linear $\Psi_{\text{weld}}$ tripwire detector on FPGA micro-controller with 1 ms response time and zero false positives during active servicing.
+            </p>
+          </div>
+
+          <!-- Month 4-5 -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-400 font-mono-code">M4 – M5</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono-code">TRL 4</span>
+            </div>
+            <h5 class="text-xs font-bold text-white">UCF High-Vacuum Hardware Trial</h5>
+            <p class="text-[11px] text-slate-400">
+              Bench test in UCF CATER ultra-high vacuum chamber. Verification of 28 kHz piezo micro-shear pulses breaking metallic bridge junctions before macro-adhesion.
+            </p>
+          </div>
+
+          <!-- Month 6 -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-400 font-mono-code">M6</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono-code">TRL 5</span>
+            </div>
+            <h5 class="text-xs font-bold text-white">Phase II Transition Blueprint</h5>
+            <p class="text-[11px] text-slate-400">
+              Delivery of final data package, flight software SDK, NASA TRL 5 validation dossier, and commercial ISAM integration roadmap with industry prime contractors.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- TAB 4: COMMERCIAL & NATIONWIDE ARR BREAKDOWN                         -->
+    <!-- ==================================================================== -->
+    <div id="viewARR" class="hidden space-y-6">
+
+      <!-- Executive Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs font-mono-code font-bold uppercase">Commercial Civil Market Opportunity</span>
+          <h2 class="text-xl font-bold text-white tracking-tight mt-2">Autonomous Vacuum Adhesion Prevention: $218.4M Mature ARR</h2>
+          <p class="text-xs text-slate-400 mt-1">Expanding NASA ISAM innovations into commercial semiconductor fabrication, space logistics, cryo valves, and fusion energy.</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-950/90 border border-slate-800 text-right min-w-[220px]">
+          <div class="text-[10px] text-slate-400 uppercase font-mono-code">Implied Enterprise Valuation (10x ARR)</div>
+          <div class="text-2xl font-bold text-emerald-400 font-mono-code">$2.18 Billion</div>
+          <div class="text-[11px] text-slate-400">Deep-Tech Hardware-Enabled SaaS</div>
+        </div>
+      </div>
+
+      <!-- ARR Distribution Table -->
+      <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur overflow-x-auto">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i> Civil & Commercial Market Vertical Distribution
+        </h3>
+
+        <table class="w-full text-left text-xs font-mono-code">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+              <th class="py-2.5 px-3">Commercial Vertical</th>
+              <th class="py-2.5 px-3">Target Application</th>
+              <th class="py-2.5 px-3">US / Global Asset Base</th>
+              <th class="py-2.5 px-3">SaaS / Royalty Metric</th>
+              <th class="py-2.5 px-3 text-right">Mature Annual ARR</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-3 font-semibold text-white">Commercial Satellite Servicing</td>
+              <td class="py-3 px-3">Life extension, orbital refueling & debris grapples</td>
+              <td class="py-3 px-3">480 robotic servicing spacecraft</td>
+              <td class="py-3 px-3">$85,000 / arm / yr</td>
+              <td class="py-3 px-3 text-right font-bold text-emerald-400">$40.8M</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-3 font-semibold text-white">Semiconductor EUV Vacuum Robotics</td>
+              <td class="py-3 px-3">High-vacuum wafer handling robots (ASML/Applied)</td>
+              <td class="py-3 px-3">3,200 EUV/DUV load-lock chambers</td>
+              <td class="py-3 px-3">$18,000 / tool / yr</td>
+              <td class="py-3 px-3 text-right font-bold text-emerald-400">$57.6M</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-3 font-semibold text-white">Commercial Lunar & Mars Landers</td>
+              <td class="py-3 px-3">Airless regolith drilling, docking latches & cranes</td>
+              <td class="py-3 px-3">140 lunar surface mechanisms</td>
+              <td class="py-3 px-3">$120,000 / vehicle / yr</td>
+              <td class="py-3 px-3 text-right font-bold text-emerald-400">$16.8M</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-3 font-semibold text-white">Cryogenic LNG & Liquid H₂ Couplings</td>
+              <td class="py-3 px-3">Deep-cryo valves seizing from frost & vacuum seals</td>
+              <td class="py-3 px-3">9,500 export terminal cryogenic manifolds</td>
+              <td class="py-3 px-3">$4,200 / manifold / yr</td>
+              <td class="py-3 px-3 text-right font-bold text-emerald-400">$39.9M</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-3 font-semibold text-white">Magnetic Confinement Fusion Reactors</td>
+              <td class="py-3 px-3">Tokamak vacuum vessel robotic remote maintenance</td>
+              <td class="py-3 px-3">65 private & national fusion testbeds</td>
+              <td class="py-3 px-3">$250,000 / facility / yr</td>
+              <td class="py-3 px-3 text-right font-bold text-emerald-400">$16.2M</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="py-3 px-3 font-semibold text-white">Ultra-High Vacuum Surface Science</td>
+              <td class="py-3 px-3">Synchrotron beamline manipulators & MBE chambers</td>
+              <td class="py-3 px-3">7,800 research analytical chambers</td>
+              <td class="py-3 px-3">$6,000 / station / yr</td>
+              <td class="py-3 px-3 text-right font-bold text-emerald-400">$46.8M</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="border-t-2 border-slate-700 font-bold text-white bg-slate-900/60">
+              <td colspan="4" class="py-3 px-3 text-right uppercase text-slate-300">Total Addressable Mature ARR:</td>
+              <td class="py-3 px-3 text-right text-emerald-400 text-sm">$218.1M</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- 6 Industry Deep-Dive Cards: The Physics & Why Incumbents Missed It -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Deep Dive 1 -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="satellite" class="w-4 h-4 text-cyan-400"></i>
+            <h4 class="text-sm font-bold text-white">1. Satellite Servicing & Refueling</h4>
+          </div>
+          <div class="text-xs space-y-2">
+            <p class="text-slate-300"><strong class="text-cyan-300">Physics in 1 Sentence:</strong> Hard orbital vacuum removes native titanium oxides under solar radiation, letting clean metal crystal lattices fuse instantly under robotic clamping pressures.</p>
+            <p class="text-slate-400"><strong class="text-slate-200">Why Others Missed It:</strong> Legacy operators used passive PTFE or gold thin-film coatings, which flake off after 3–5 docking cycles leaving catastrophic bare-metal contact that seizes the arm.</p>
+          </div>
+        </div>
+
+        <!-- Deep Dive 2 -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
+            <h4 class="text-sm font-bold text-white">2. Semiconductor EUV Robotics</h4>
+          </div>
+          <div class="text-xs space-y-2">
+            <p class="text-slate-300"><strong class="text-indigo-300">Physics in 1 Sentence:</strong> Hydrogen plasma in EUV lithography strips carbon and organic lubricants, leaving stainless robot end-effectors vulnerable to instant solid-state galling against silicon chuck pins.</p>
+            <p class="text-slate-400"><strong class="text-slate-200">Why Others Missed It:</strong> Fabs treat chuck galling as unpreventable hardware wear, replacing $350k robotic arms every 9 months instead of running sub-millisecond conductance monitoring.</p>
+          </div>
+        </div>
+
+        <!-- Deep Dive 3 -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="moon" class="w-4 h-4 text-amber-400"></i>
+            <h4 class="text-sm font-bold text-white">3. Commercial Lunar Landers</h4>
+          </div>
+          <div class="text-xs space-y-2">
+            <p class="text-slate-300"><strong class="text-amber-300">Physics in 1 Sentence:</strong> Abrasive lunar dust particles scour passivating films off latching hooks in daytime heat ($120^\circ\text{C}$), precipitating thermal diffusion welding at night ($-130^\circ\text{C}$).</p>
+            <p class="text-slate-400"><strong class="text-slate-200">Why Others Missed It:</strong> Engineers relied on oversized pyro-cutters as contingency, adding 45 kg of dead mass and leaving mechanisms non-reusable for multi-hop surface sorties.</p>
+          </div>
+        </div>
+
+        <!-- Deep Dive 4 -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="droplet" class="w-4 h-4 text-cyan-400"></i>
+            <h4 class="text-sm font-bold text-white">4. Cryogenic LNG & Liquid H₂ Couplings</h4>
+          </div>
+          <div class="text-xs space-y-2">
+            <p class="text-slate-300"><strong class="text-cyan-300">Physics in 1 Sentence:</strong> Liquid hydrogen at $20\text{ K}$ freezes out all atmospheric gases into high vacuum inside transfer sleeves, causing metallic quick-disconnect poppets to fuse solid.</p>
+            <p class="text-slate-400"><strong class="text-slate-200">Why Others Missed It:</strong> Incumbents torch disconnect lines with external nitrogen heaters for 4 hours to melt ice bridges, unaware that micro-cold welding is the actual culprit.</p>
+          </div>
+        </div>
+
+        <!-- Deep Dive 5 -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="flame" class="w-4 h-4 text-rose-400"></i>
+            <h4 class="text-sm font-bold text-white">5. Fusion Tokamak Remote Maintenance</h4>
+          </div>
+          <div class="text-xs space-y-2">
+            <p class="text-slate-300"><strong class="text-rose-300">Physics in 1 Sentence:</strong> High-flux 14 MeV neutrons displace surface atoms in vacuum, creating ultra-reactive dangling bonds that cold-weld robotic manipulator tools inside the divertor.</p>
+            <p class="text-slate-400"><strong class="text-slate-200">Why Others Missed It:</strong> Traditional nuclear plants work in ambient water/air; fusion vacuum-vessel maintenance tools have never experienced simultaneous radiation damage and vacuum de-oxidation.</p>
+          </div>
+        </div>
+
+        <!-- Deep Dive 6 -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 backdrop-blur space-y-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="microscope" class="w-4 h-4 text-emerald-400"></i>
+            <h4 class="text-sm font-bold text-white">6. Synchrotron & MBE Research</h4>
+          </div>
+          <div class="text-xs space-y-2">
+            <p class="text-slate-300"><strong class="text-emerald-300">Physics in 1 Sentence:</strong> Molecular beam epitaxy sample manipulators frequently gall during in-situ sample transfer, ruining multi-month crystal growth runs.</p>
+            <p class="text-slate-400"><strong class="text-slate-200">Why Others Missed It:</strong> Academic facilities treat stuck transfer arms as user error, relying on manual wrenches that snap costly beryllium transfer rods inside $10^{-11}\text{ Torr}$ chambers.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Executive Summary & CTA Callout -->
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-1">
+          <h4 class="text-sm font-bold text-white uppercase tracking-wider">Executive Summary for Prime Contractors & Deep-Tech Investors</h4>
+          <p class="text-xs text-slate-400 max-w-3xl leading-relaxed">
+            ColdWeld converts an intractable space-vacuum physical failure mode into a deterministic, software-monitored impedance event. By detecting the Sharvin quantum conductance surge 50 ms before irreversible lattice fusion, our edge firmware protects multimillion-dollar servicing robots without adding exotic coatings or mechanical mass.
+          </p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <a href="mailto:support@rfwavecode.com?subject=ColdWeld%20NASA%20SBIR%20ISAM%20Collaboration" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold text-center transition-all shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2">
+            <i data-lucide="mail" class="w-4 h-4"></i> Partner With Us: support@rfwavecode.com
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT SIMULATION ENGINE, CHARTS & TAB CONTROLLER -->
+  <script>
+    // ========================================================================
+    // 1. TAB CONTROLLER & MATHJAX HOOK
+    // ========================================================================
+    const tabMapping = {
+      'sim': { viewId: 'viewSim', btnId: 'tabBtnSim' },
+      'physics': { viewId: 'viewPhysics', btnId: 'tabBtnPhysics' },
+      'proposal': { viewId: 'viewProposal', btnId: 'tabBtnProposal' },
+      'arr': { viewId: 'viewARR', btnId: 'tabBtnARR' }
+    };
+
+    function switchTab(activeKey) {
+      Object.keys(tabMapping).forEach(key => {
+        const item = tabMapping[key];
+        const viewEl = document.getElementById(item.viewId);
+        const btnEl = document.getElementById(item.btnId);
+
+        if (key === activeKey) {
+          viewEl.classList.remove('hidden');
+          btnEl.className = 'px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-white bg-slate-800 shadow';
+        } else {
+          viewEl.classList.add('hidden');
+          btnEl.className = 'px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-slate-400 hover:text-slate-200';
+        }
+      });
+
+      // Typeset MathJax dynamically whenever switching views
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise();
+      }
+
+      // Re-trigger canvas resize if opening simulation tab
+      if (activeKey === 'sim') {
+        setTimeout(() => {
+          resizeCanvas();
+        }, 50);
+      }
+    }
+
+    // ========================================================================
+    // 2. SIMULATION STATE & PHYSICAL MODEL PARAMETERS
+    // ========================================================================
+    const simState = {
+      // Actuator inputs
+      clampForce: 120, // Newtons
+      vacuumIndex: 94, // % oxide-free bare metallic purity
+      roughness: 0.45, // micrometers Rq
+
+      // Autonomous controller settings
+      autoIntervention: true,
+      piezoAmplitude: 0.0, // microns shear
+      piezoFrequency: 28.4, // kHz
+      piezoActive: false,
+      piezoCooldown: 0,
+
+      // Inferred micro-physical variables
+      conductance: 38.4, // mS
+      realContactArea: 0.42, // um^2
+      coldWeldFraction: 3.2, // %
+      weldCurvatureMetric: 0.05, // Psi metric
+      isWelding: false,
+      isSeized: false,
+
+      // Time step
+      tick: 0,
+      historyCount: 45
+    };
+
+    // Asperity physical micro-geometry representation
+    const asperityNodes = [];
+    const NUM_ASPERITIES = 18;
+
+    function initAsperities() {
+      asperityNodes.length = 0;
+      for (let i = 0; i < NUM_ASPERITIES; i++) {
+        asperityNodes.push({
+          x: (i + 0.5) * (1 / NUM_ASPERITIES),
+          baseHeightTop: 0.35 + (Math.sin(i * 1.7) * 0.08 + Math.cos(i * 3.1) * 0.04),
+          baseHeightBot: 0.65 - (Math.cos(i * 2.3) * 0.08 + Math.sin(i * 1.9) * 0.04),
+          currentBondLevel: 0.0, // 0 to 1 (pure metallic weld bridge)
+          stress: 0
+        });
+      }
+    }
+    initAsperities();
+
+    // ========================================================================
+    // 3. CHART.JS CONFIGURATIONS
+    // ========================================================================
+    let phaseSpaceChart = null;
+    let conductanceTimeChart = null;
+    let vibrationTimeChart = null;
+
+    function initCharts() {
+      // 3A. Phase Space Scatter Plot (Force F vs Conductance G)
+      const ctxPhase = document.getElementById('phaseSpaceChart').getContext('2d');
+      
+      // Generate Nominal Holm baseline curve: G ~ a * F^(1/3)
+      const baselineData = [];
+      const hazardBoundaryData = [];
+      for (let f = 10; f <= 600; f += 20) {
+        const nominalG = 7.5 * Math.pow(f, 0.35);
+        baselineData.push({ x: f, y: nominalG });
+        // Hazard threshold: where non-linear quantum surge commences
+        const hazardG = nominalG * 1.85 + 25;
+        hazardBoundaryData.push({ x: f, y: hazardG });
+      }
+
+      phaseSpaceChart = new Chart(ctxPhase, {
+        type: 'scatter',
+        data: {
+          datasets: [
+            {
+              label: 'Elastic Holm Baseline',
+              data: baselineData,
+              showLine: true,
+              borderColor: '#10b981',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Critical Welding Boundary',
+              data: hazardBoundaryData,
+              showLine: true,
+              borderColor: '#f43f5e',
+              borderWidth: 2,
+              borderDash: [6, 4],
+              pointRadius: 0,
+              backgroundColor: 'rgba(244, 63, 94, 0.07)',
+              fill: 'end'
+            },
+            {
+              label: 'Trajectory (Last 20 states)',
+              data: [],
+              showLine: true,
+              borderColor: 'rgba(6, 182, 212, 0.5)',
+              borderWidth: 2,
+              pointBackgroundColor: '#06b6d4',
+              pointBorderColor: '#ffffff',
+              pointRadius: (ctx) => {
+                const index = ctx.dataIndex;
+                const total = ctx.dataset.data.length;
+                return index === total - 1 ? 6 : 3;
+              }
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            x: {
+              title: { display: true, text: 'Clamping Force F (N)', color: '#94a3b8', font: { size: 10 } },
+              min: 0,
+              max: 650,
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { size: 9 } }
+            },
+            y: {
+              title: { display: true, text: 'Conductance G (mS)', color: '#94a3b8', font: { size: 10 } },
+              min: 0,
+              max: 260,
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { size: 9 } }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 12 }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#38bdf8',
+              bodyFont: { family: 'JetBrains Mono' }
+            }
+          }
+        }
+      });
+
+      // 3B. Conductance Time Series
+      const ctxG = document.getElementById('conductanceTimeChart').getContext('2d');
+      const timeLabels = Array.from({ length: simState.historyCount }, (_, i) => `${-(simState.historyCount - i) * 20}ms`);
+      const initialGData = Array(simState.historyCount).fill(simState.conductance);
+
+      conductanceTimeChart = new Chart(ctxG, {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: 'G(t) Conductance',
+              data: [...initialGData],
+              borderColor: '#06b6d4',
+              backgroundColor: 'rgba(6, 182, 212, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              pointRadius: 0,
+              tension: 0.25
+            },
+            {
+              label: 'Tripwire Threshold (160 mS)',
+              data: Array(simState.historyCount).fill(160),
+              borderColor: '#f43f5e',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { display: false }
+            },
+            y: {
+              min: 0,
+              max: 260,
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { size: 9 } }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 10 }
+            }
+          }
+        }
+      });
+
+      // 3C. Vibration Shear Amplitude Time Series
+      const ctxVib = document.getElementById('vibrationTimeChart').getContext('2d');
+      vibrationTimeChart = new Chart(ctxVib, {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: 'Piezo Shear Displ (μm)',
+              data: Array(simState.historyCount).fill(0),
+              borderColor: '#818cf8',
+              backgroundColor: 'rgba(129, 140, 248, 0.15)',
+              borderWidth: 2,
+              fill: true,
+              pointRadius: 0,
+              tension: 0.2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { display: false }
+            },
+            y: {
+              min: 0,
+              max: 3.5,
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { size: 9 } }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 10 }
+            }
+          }
+        }
+      });
+    }
+
+    // Trajectory buffer for Phase Space
+    const trajectoryPoints = [];
+
+    // ========================================================================
+    // 4. CANVAS RENDERING & HIGH-DPI SCALING
+    // ========================================================================
+    const canvas = document.getElementById('nanoCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width || 600;
+      const h = rect.height || 280;
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function renderCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width || 600;
+      const h = rect.height || 280;
+
+      // Dark background
+      ctx.fillStyle = '#02050c';
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw subtle grid lines (representing nanoscale reference)
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1;
+      const gridSize = 35;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Calculate vertical displacement from clamping force
+      // As force rises, top and bottom metallic bodies approach closer
+      const compression = (simState.clampForce / 600) * 22; // up to 22px compression
+      const piezoWiggle = simState.piezoActive ? Math.sin(simState.tick * 1.5) * (simState.piezoAmplitude * 4.5) : 0;
+
+      const topJawY = h * 0.35 + compression;
+      const botJawY = h * 0.65 - compression;
+
+      // 1. Draw Lower Metallic Fixture (Satellite Ti-6Al-4V) - Indigo tint
+      ctx.fillStyle = '#1e1b4b';
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      ctx.lineTo(0, botJawY);
+      
+      for (let i = 0; i < asperityNodes.length; i++) {
+        const node = asperityNodes[i];
+        const nx = node.x * w;
+        const ny = botJawY + (node.baseHeightBot - 0.65) * 60;
+        ctx.lineTo(nx, ny);
+      }
+      ctx.lineTo(w, botJawY);
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Lower metallic boundary glow line
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 2. Draw Upper Robotic Gripper Finger (BeCu) - Cyan tint (with lateral piezo vibration)
+      ctx.save();
+      ctx.translate(piezoWiggle, 0);
+
+      ctx.fillStyle = '#083344';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, topJawY);
+
+      for (let i = 0; i < asperityNodes.length; i++) {
+        const node = asperityNodes[i];
+        const nx = node.x * w;
+        const ny = topJawY + (node.baseHeightTop - 0.35) * 60;
+        ctx.lineTo(nx, ny);
+      }
+      ctx.lineTo(w, topJawY);
+      ctx.lineTo(w, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Upper metallic boundary line
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 3. Draw Interfacial Asperity Cold-Welded Micro-Bridges
+      for (let i = 0; i < asperityNodes.length; i++) {
+        const node = asperityNodes[i];
+        const nx = node.x * w;
+        const topTipY = topJawY + (node.baseHeightTop - 0.35) * 60;
+        const botTipY = botJawY + (node.baseHeightBot - 0.65) * 60;
+
+        // When asperity tips touch or overlap, draw electron transport or solid bridge
+        if (topTipY >= botTipY - 6) {
+          const bridgeAlpha = node.currentBondLevel;
+
+          if (bridgeAlpha > 0.15) {
+            // Cold welded atomic necking (Rose glow)
+            ctx.strokeStyle = `rgba(244, 63, 94, ${Math.min(1, bridgeAlpha + 0.3)})`;
+            ctx.lineWidth = 3 + bridgeAlpha * 6;
+            ctx.beginPath();
+            ctx.moveTo(nx, topTipY);
+            ctx.lineTo(nx - piezoWiggle, botTipY);
+            ctx.stroke();
+
+            // Atomic bond fracture sparks if piezo is vibrating them apart
+            if (simState.piezoActive && Math.random() > 0.4) {
+              ctx.fillStyle = '#fde047';
+              ctx.beginPath();
+              ctx.arc(nx + (Math.random() - 0.5) * 8, (topTipY + botTipY) / 2, 2.5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else {
+            // Elastic conduction point contact (Cyan spark)
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(nx, topTipY);
+            ctx.lineTo(nx, botTipY);
+            ctx.stroke();
+          }
+        }
+      }
+      ctx.restore();
+
+      // Label Overlay texts inside canvas
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillText('ROBOTIC GRIPPER (BeCu ALLOY)', 14, 24);
+
+      ctx.fillStyle = '#a5b4fc';
+      ctx.fillText('SATELLITE GRAPPLE (Ti-6Al-4V)', 14, h - 14);
+
+      if (simState.piezoActive) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`⚡ ULTRASONIC SHEAR ACTIVE: ${simState.piezoAmplitude.toFixed(2)} μm @ 28.4 kHz`, w - 290, 24);
+      }
+    }
+
+    // ========================================================================
+    // 5. PHYSICS UPDATE & CLOSED-LOOP CONTROL STEP
+    // ========================================================================
+    function physicsStep() {
+      simState.tick++;
+
+      // 1. Nominal Hertzian/Holm baseline conductance
+      const nominalG = 7.2 * Math.pow(simState.clampForce, 0.36) * (1 + (1 - simState.roughness * 0.4));
+      
+      // Vacuum index factor: bare surface exponentiates cold-welding risk
+      const vacuumFactor = Math.pow(simState.vacuumIndex / 100, 3.2);
+
+      // Force threshold where plastic crushing of asperities triggers
+      const plasticThreshold = 180 + simState.roughness * 90;
+
+      let bondingTendency = 0;
+      if (simState.clampForce > plasticThreshold) {
+        bondingTendency = ((simState.clampForce - plasticThreshold) / 250) * vacuumFactor;
+      }
+
+      // If user triggered manual seizure injection
+      if (simState.isSeized) {
+        bondingTendency += 1.8;
+      }
+
+      // Update asperity bond states
+      let totalWeldScore = 0;
+      const compression = (simState.clampForce / 600) * 22;
+      const topJawY = 100 + compression;
+      const botJawY = 180 - compression;
+
+      asperityNodes.forEach((node, idx) => {
+        const topTipY = topJawY + (node.baseHeightTop - 0.35) * 60;
+        const botTipY = botJawY + (node.baseHeightBot - 0.65) * 60;
+
+        if (topTipY >= botTipY - 5) {
+          // Asperities are in intimate contact
+          if (simState.piezoActive) {
+            // Shear fractures bonds
+            node.currentBondLevel = Math.max(0, node.currentBondLevel - 0.18);
+          } else {
+            // Bonds grow based on force and vacuum
+            node.currentBondLevel = Math.min(1.0, node.currentBondLevel + 0.04 * bondingTendency);
+          }
+        } else {
+          // Not touching
+          node.currentBondLevel = Math.max(0, node.currentBondLevel - 0.05);
+        }
+        totalWeldScore += node.currentBondLevel;
+      });
+
+      // Calculate Cold Weld Fraction (%)
+      simState.coldWeldFraction = (totalWeldScore / NUM_ASPERITIES) * 100;
+
+      // Real contact area
+      simState.realContactArea = (simState.clampForce / 280) * (1 + simState.coldWeldFraction * 0.02);
+
+      // Interface conductance calculation: Holm elastic + Quantum point surge from welded bridges
+      const surgeConductance = (totalWeldScore * 18.5) * (1 + vacuumFactor * 0.5);
+      simState.conductance = nominalG + surgeConductance;
+
+      // Compute non-linear curvature tripwire metric Psi:
+      // Psi ~ (Conductance / NominalConductance) - 1.0
+      simState.weldCurvatureMetric = (simState.conductance / nominalG) - 1.0;
+
+      // Check if threshold exceeded (Psi > 0.45 or G > 155 mS)
+      if (simState.conductance > 155 || simState.weldCurvatureMetric > 0.45) {
+        simState.isWelding = true;
+
+        // Trigger autonomous piezo intervention if enabled
+        if (simState.autoIntervention && !simState.piezoActive && simState.piezoCooldown <= 0) {
+          triggerPiezoIntervention(2.4);
+        }
+      } else {
+        simState.isWelding = false;
+      }
+
+      // Handle piezo active decay
+      if (simState.piezoActive) {
+        simState.piezoAmplitude = Math.max(0, simState.piezoAmplitude - 0.08);
+        if (simState.piezoAmplitude <= 0.05) {
+          simState.piezoActive = false;
+          simState.piezoCooldown = 15; // ticks cooldown
+          simState.isSeized = false; // Reset injected seizure
+        }
+      } else if (simState.piezoCooldown > 0) {
+        simState.piezoCooldown--;
+      }
+
+      // Update UI Telemetry & Badges
+      updateTelemetryUI();
+
+      // Update Charts every 3 ticks to optimize CPU
+      if (simState.tick % 3 === 0) {
+        updateChartTelemetry();
+      }
+
+      // Render physical canvas
+      renderCanvas();
+    }
+
+    function triggerPiezoIntervention(amp) {
+      simState.piezoActive = true;
+      simState.piezoAmplitude = amp || 2.4;
+    }
+
+    function manualPiezoPulse() {
+      triggerPiezoIntervention(2.8);
+    }
+
+    function injectSeizureSurge() {
+      simState.isSeized = true;
+      simState.clampForce = Math.max(simState.clampForce, 380);
+      document.getElementById('inputForce').value = simState.clampForce;
+      document.getElementById('sliderForceVal').innerText = `${simState.clampForce} N`;
+    }
+
+    function resetSimulation() {
+      simState.clampForce = 120;
+      simState.vacuumIndex = 94;
+      simState.roughness = 0.45;
+      simState.piezoActive = false;
+      simState.piezoAmplitude = 0;
+      simState.isSeized = false;
+      simState.isWelding = false;
+      initAsperities();
+
+      document.getElementById('inputForce').value = 120;
+      document.getElementById('sliderForceVal').innerText = '120 N';
+      document.getElementById('inputVacuum').value = 94;
+      document.getElementById('sliderVacuumVal').innerText = '94 % (Pristine Ti)';
+      document.getElementById('inputRoughness').value = 0.45;
+      document.getElementById('sliderRoughnessVal').innerText = '0.45 μm';
+
+      trajectoryPoints.length = 0;
+    }
+
+    // ========================================================================
+    // 6. UI TELEMETRY SYNCHRONIZATION
+    // ========================================================================
+    function updateTelemetryUI() {
+      // Numerical displays
+      document.getElementById('canvasForceVal').innerText = `${simState.clampForce.toFixed(1)} N`;
+      document.getElementById('canvasConductanceVal').innerText = `${simState.conductance.toFixed(1)} mS`;
+      document.getElementById('canvasAreaVal').innerText = `${simState.realContactArea.toFixed(2)} μm²`;
+      document.getElementById('canvasWeldPct').innerText = `${simState.coldWeldFraction.toFixed(1)} %`;
+
+      const warningOverlay = document.getElementById('weldWarningOverlay');
+      const systemBadge = document.getElementById('systemStateBadge');
+      const piezoText = document.getElementById('piezoStatusText');
+      const bondStatusFoot = document.getElementById('bondStatusFoot');
+
+      if (simState.piezoActive) {
+        piezoText.innerText = `ACTIVE (${simState.piezoFrequency} kHz, ${simState.piezoAmplitude.toFixed(2)} μm)`;
+        piezoText.className = 'text-cyan-400 font-bold animate-pulse';
+        bondStatusFoot.innerText = 'Debonding in Progress...';
+        bondStatusFoot.className = 'text-cyan-400 font-bold';
+      } else {
+        piezoText.innerText = 'STANDBY (0 kHz)';
+        piezoText.className = 'text-slate-400 font-medium';
+        bondStatusFoot.innerText = simState.coldWeldFraction > 10 ? 'Welding Active' : 'Bonds Dissipated';
+        bondStatusFoot.className = simState.coldWeldFraction > 10 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-semibold';
+      }
+
+      if (simState.isWelding && !simState.piezoActive) {
+        warningOverlay.classList.remove('hidden');
+        systemBadge.className = 'px-3 py-1.5 rounded-lg bg-rose-950/90 border border-rose-600 text-rose-300 font-semibold flex items-center gap-1.5 animate-pulse glow-rose';
+        systemBadge.innerHTML = `<i data-lucide="zap" class="w-3.5 h-3.5 text-rose-400"></i> CRITICAL: VACUUM COLD-WELD SURGE`;
+      } else if (simState.piezoActive) {
+        warningOverlay.classList.add('hidden');
+        systemBadge.className = 'px-3 py-1.5 rounded-lg bg-cyan-950/90 border border-cyan-600 text-cyan-300 font-semibold flex items-center gap-1.5 glow-cyan';
+        systemBadge.innerHTML = `<i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-400"></i> PIEZO SHEAR DEBONDING ACTIVE`;
+      } else {
+        warningOverlay.classList.add('hidden');
+        systemBadge.className = 'px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-700 text-emerald-300 font-semibold flex items-center gap-1.5';
+        systemBadge.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400"></i> NOMINAL ELASTIC CONTACT`;
+      }
+      lucide.createIcons();
+    }
+
+    function updateChartTelemetry() {
+      // 1. Update Phase Space Scatter Trajectory
+      trajectoryPoints.push({ x: simState.clampForce, y: simState.conductance });
+      if (trajectoryPoints.length > 20) {
+        trajectoryPoints.shift();
+      }
+      if (phaseSpaceChart) {
+        phaseSpaceChart.data.datasets[2].data = [...trajectoryPoints];
+        phaseSpaceChart.update('none');
+      }
+
+      // 2. Update Time Series G(t)
+      if (conductanceTimeChart) {
+        const gDataset = conductanceTimeChart.data.datasets[0].data;
+        gDataset.shift();
+        gDataset.push(simState.conductance);
+        conductanceTimeChart.update('none');
+      }
+
+      // 3. Update Piezo Shear Time Series
+      if (vibrationTimeChart) {
+        const vDataset = vibrationTimeChart.data.datasets[0].data;
+        vDataset.shift();
+        vDataset.push(simState.piezoAmplitude);
+        vibrationTimeChart.update('none');
+      }
+    }
+
+    // ========================================================================
+    // 7. EVENT LISTENERS FOR CONTROLS
+    // ========================================================================
+    document.getElementById('inputForce').addEventListener('input', (e) => {
+      simState.clampForce = parseFloat(e.target.value);
+      document.getElementById('sliderForceVal').innerText = `${simState.clampForce} N`;
+    });
+
+    document.getElementById('inputVacuum').addEventListener('input', (e) => {
+      simState.vacuumIndex = parseFloat(e.target.value);
+      document.getElementById('sliderVacuumVal').innerText = `${simState.vacuumIndex} % (Pristine Ti)`;
+    });
+
+    document.getElementById('inputRoughness').addEventListener('input', (e) => {
+      simState.roughness = parseFloat(e.target.value);
+      document.getElementById('sliderRoughnessVal').innerText = `${simState.roughness.toFixed(2)} μm`;
+    });
+
+    document.getElementById('toggleAutoIntervention').addEventListener('change', (e) => {
+      simState.autoIntervention = e.target.checked;
+    });
+
+    // ========================================================================
+    // 8. LIFECYCLE INITIALIZATION ON LOAD
+    // ========================================================================
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+      initCharts();
+      resizeCanvas();
+
+      // Physics loop running at 40ms intervals (~25Hz physics cycle)
+      setInterval(physicsStep, 40);
+    });
+  </script>
+</body>
+</html>
